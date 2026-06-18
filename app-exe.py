@@ -54,13 +54,7 @@ NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 app = Flask(__name__)
-import secrets as _secrets_mod
-import warnings as _warnings_mod
-_secret = os.getenv('SECRET_KEY')
-if not _secret:
-    _warnings_mod.warn("SECRET_KEY not set in environment; using a random key (sessions will not persist across restarts)")
-    _secret = _secrets_mod.token_hex(32)
-app.config['SECRET_KEY'] = _secret
+app.config['SECRET_KEY'] = 'secret-key'
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -97,11 +91,11 @@ def earth():
 
 def get_geojson_data(filename):
     """Return a summary of the GeoJSON file (properties and first few coords to keep it snappy)."""
-    geodata_dir = os.path.realpath(os.path.join(app.root_path, 'geodata'))
-    filepath = os.path.realpath(os.path.join(geodata_dir, filename))
-    if not filepath.startswith(geodata_dir + os.sep):
+    # Security check: prevent directory traversal
+    if '..' in filename or filename.startswith('/'):
         return jsonify({"error": "Invalid filename"}), 400
 
+    filepath = os.path.join(app.root_path, 'geodata', filename)
     if not os.path.exists(filepath):
         return jsonify({"error": "File not found"}), 404
 
@@ -1045,7 +1039,7 @@ def get_advanced_news():
         if from_date:
             params['from'] = from_date
 
-        print(f"Requesting NewsAPI: {url} with query={params.get('q','')!r} lang={params.get('language','')!r}")
+        print(f"Requesting NewsAPI: {url} with params: {params}")
         response = requests.get(url, params=params, timeout=10)
         print(f"NewsAPI Response Status: {response.status_code}")
         if response.status_code == 200:
@@ -1910,8 +1904,7 @@ if __name__ == '__main__':
   
     print("="*60 + "\n")
 
-    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-    app.run(host="0.0.0.0", port=int(os.getenv('PORT', 8000)), debug=debug)
+    app.run(host="0.0.0.0", port=8000, debug=True)
 
 
 
